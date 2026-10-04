@@ -18,6 +18,7 @@ public static class In {
   [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int i);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr e);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder sb, int max);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, StringBuilder l);
@@ -276,8 +277,19 @@ Check (@([In]::Visible($app.Id) | Where-Object { [In]::Title($_) -like '*нас�
 
 Write-Host "15) Блокнот"
 $np = Start-Process notepad -PassThru
-Start-Sleep -Seconds 3
-$npw = (Get-Process -Id $np.Id -ErrorAction SilentlyContinue).MainWindowHandle
+$npw = [IntPtr]::Zero
+for ($i = 0; $i -lt 40 -and $npw -eq [IntPtr]::Zero; $i++) {
+  Start-Sleep -Milliseconds 250
+  $npp = Get-Process notepad -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+  if ($npp) { $npw = $npp.MainWindowHandle }
+}
+Start-Sleep -Seconds 1
+# Окно, запущенное из фонового процесса, Windows может не сделать активным — щёлкаем в его текст, как человек
+$rc = New-Object In+RECT
+if ($npw -ne [IntPtr]::Zero -and [In]::GetWindowRect($npw, [ref]$rc)) {
+  $cx = $rc.L + 160; $cy = $rc.T + 140
+  [In]::Glide([System.Windows.Forms.Cursor]::Position.X, [System.Windows.Forms.Cursor]::Position.Y, $cx, $cy, 8, 5); [In]::Click(); Start-Sleep -Milliseconds 500
+}
 $fgPid = [In]::ForegroundPid()
 Write-Host "  активно окно процесса $fgPid ($((Get-Process -Id $fgPid -ErrorAction SilentlyContinue).ProcessName))"
 LoadKeys $cfgA
