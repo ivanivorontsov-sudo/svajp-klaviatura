@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SvajpKlaviatura/SvajpKlaviatura.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SvajpKlaviatura.EngineTests/SvajpKlaviatura.EngineTests.csproj" />
+    <Project Path="tests/SvajpKlaviatura.Tests/SvajpKlaviatura.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Bench/Bench.csproj" />
+  </Folder>
+</Solution>

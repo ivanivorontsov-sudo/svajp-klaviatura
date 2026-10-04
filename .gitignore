@@ -1,0 +1,8 @@
+bin/
+obj/
+dist/
+ui-shots/
+*.user
+.vs/
+TestResults/
+reports/

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>SvajpKlaviatura</AssemblyName>
+    <RootNamespace>SvajpKlaviatura</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>Свайп-клавиатура</Product>
+    <AssemblyTitle>Свайп-клавиатура</AssemblyTitle>
+    <Description>Экранная клавиатура: слова набираются свайпом мышью, тачпадом или пальцем</Description>
+    <Company>Иван Воронцов</Company>
+    <Copyright>© 2026 Иван Воронцов</Copyright>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <DebugType>embedded</DebugType>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>false</GenerateBindingRedirectsOutputType>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="app.ico" LogicalName="SvajpKlaviatura.app.ico" />
+    <EmbeddedResource Include="Dict\ru.txt" LogicalName="SvajpKlaviatura.Dict.ru.txt" />
+    <EmbeddedResource Include="Dict\en.txt" LogicalName="SvajpKlaviatura.Dict.en.txt" />
+    <None Remove="Dict\*.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SvajpKlaviatura.Tests" />
+  </ItemGroup>
+</Project>

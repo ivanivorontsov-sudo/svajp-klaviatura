@@ -1,0 +1,83 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Сборка
+        run: dotnet build SvajpKlaviatura.slnx -c Release
+
+      - name: Тесты распознавания и логики набора
+        run: dotnet test tests/SvajpKlaviatura.EngineTests/SvajpKlaviatura.EngineTests.csproj -c Release --no-build --logger "console;verbosity=detailed"
+
+      - name: Тесты Windows (окно, ввод, настройки)
+        run: dotnet test tests/SvajpKlaviatura.Tests/SvajpKlaviatura.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
+
+      - name: Точность распознавания (отчёт)
+        shell: pwsh
+        run: |
+          $r = dotnet run --project tools/Bench/Bench.csproj -c Release --no-build
+          $r | Write-Host
+          "## Точность распознавания (синтетические свайпы)" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          '```' | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          ($r | Where-Object { $_ -notmatch 'ошибки' }) | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          '```' | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          Get-Content tests/SvajpKlaviatura.EngineTests/bin/Release/net8.0/reports/accuracy.md -ErrorAction SilentlyContinue | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+
+      - name: Дымовой тест (свайпы мышью в поле ввода и Блокнот, снимки экрана)
+        shell: pwsh
+        run: ./ci/smoke.ps1 -Exe src/SvajpKlaviatura/bin/Release/net48/SvajpKlaviatura.exe
+
+      - name: Подготовка файлов
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item src/SvajpKlaviatura/bin/Release/net48/SvajpKlaviatura.exe dist/
+          $h = (Get-FileHash dist/SvajpKlaviatura.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  SvajpKlaviatura.exe" | Out-File -Encoding ascii dist/SvajpKlaviatura.exe.sha256
+          Write-Host "SHA-256: $h  размер: $((Get-Item dist/SvajpKlaviatura.exe).Length) байт"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: SvajpKlaviatura
+          path: dist/
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: ui-shots
+          path: ui-shots/
+          if-no-files-found: ignore
+
+      - name: Релиз
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag dist/SvajpKlaviatura.exe dist/SvajpKlaviatura.exe.sha256 --clobber
+          } else {
+            gh release create $tag dist/SvajpKlaviatura.exe dist/SvajpKlaviatura.exe.sha256 --title "Свайп-клавиатура $tag" --notes-file RELEASE_NOTES.md
+          }
