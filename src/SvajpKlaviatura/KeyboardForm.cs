@@ -671,7 +671,7 @@ namespace SvajpKlaviatura
                 case Op.BarButton:
                     op = Op.None; Capture = false;
                     var b = pressedBtn; pressedBtn = BarBtn.None;
-                    if (b == BarBtn.Mode && ModeRect.Contains(p)) { settings.Mode = settings.Mode == SwipeMode.Click ? SwipeMode.Hold : SwipeMode.Click; if (SettingsChanged != null) SettingsChanged(); Notice(settings.Mode == SwipeMode.Click ? "Без зажатия: щёлкните на первой букве, ведите, щёлкните в конце" : "С зажатием: нажмите на первой букве и ведите, не отпуская"); }
+                    if (b == BarBtn.Mode && ModeRect.Contains(p)) { settings.Mode = settings.Mode == SwipeMode.Click ? SwipeMode.Hold : SwipeMode.Click; if (SettingsChanged != null) SettingsChanged(); Notice(settings.Mode == SwipeMode.Click ? "Щёлкните на первой букве, ведите, щёлкните в конце слова" : "Нажмите на первой букве и ведите, не отпуская"); }
                     else if (b == BarBtn.Settings && SettingsRect.Contains(p)) { if (SettingsRequested != null) SettingsRequested(); }
                     else if (b == BarBtn.Hide && HideRect.Contains(p)) { if (HideRequested != null) HideRequested(); }
                     Invalidate();
