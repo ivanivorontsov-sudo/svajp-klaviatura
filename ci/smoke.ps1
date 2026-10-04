@@ -268,12 +268,17 @@ Write-Host "14) окно настроек"
 $p2 = Start-Process $exe -ArgumentList @('--config-dir', "`"$cfgA`"", '--settings') -PassThru
 $p2.WaitForExit(5000) | Out-Null
 Check ($p2.HasExited) "второй экземпляр передал команду первому"
-Start-Sleep -Seconds 2
-$sw = @([In]::Visible($app.Id) | Where-Object { [In]::Title($_) -like '*настройки*' })
+function SettingsWins() { return @([In]::Visible($app.Id) | Where-Object { [In]::Title($_) -like '*настройки*' }) }
+$sw = @(); $swt = [Diagnostics.Stopwatch]::StartNew()
+while ($swt.ElapsedMilliseconds -lt 8000) { $sw = SettingsWins; if ($sw.Count -ge 1) { break }; Start-Sleep -Milliseconds 200 }
+Write-Host "  окно настроек появилось через $($swt.ElapsedMilliseconds) мс"
 Check ($sw.Count -eq 1) "окно настроек открылось"
+Start-Sleep -Milliseconds 800
 Shot '09-settings'
-[In]::Key(0x1B); Start-Sleep -Milliseconds 700
-Check (@([In]::Visible($app.Id) | Where-Object { [In]::Title($_) -like '*настройки*' }).Count -eq 0) "Esc закрыл настройки"
+if ($sw.Count -ge 1) { [In]::SetForegroundWindow($sw[0]) | Out-Null; Start-Sleep -Milliseconds 300 }
+[In]::Key(0x1B)
+for ($i = 0; $i -lt 20 -and (SettingsWins).Count -gt 0; $i++) { Start-Sleep -Milliseconds 200 }
+Check ((SettingsWins).Count -eq 0) "Esc закрыл настройки"
 
 Write-Host "15) Блокнот"
 $np = Start-Process notepad -PassThru
