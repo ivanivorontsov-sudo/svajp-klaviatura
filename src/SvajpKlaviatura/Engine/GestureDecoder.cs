@@ -11,7 +11,7 @@ namespace SvajpKlaviatura.Engine
         /// <summary>Насколько далеко (в клавишах) от первой/последней буквы может начаться/закончиться свайп.</summary>
         public double StartRadius = 1.25, EndRadius = 1.7;
         /// <summary>Канал «прохода по буквам»: каждая буква слова по порядку должна быть рядом с траекторией.</summary>
-        public double WLoc = 1.0;
+        public double WLoc = 2.66;
         /// <summary>Канал «покрытия»: траектория не должна уходить от идеальной ломаной слова (лишние буквы).</summary>
         public double WCov = 2.66;
         /// <summary>Канал местоположения SHARK2: точки, равномерно взятые по длине, сравниваются попарно.</summary>
@@ -19,11 +19,11 @@ namespace SvajpKlaviatura.Engine
         /// <summary>Канал формы SHARK2: то же после нормализации положения и масштаба.</summary>
         public double WShape = 0.225;
         /// <summary>Штраф за несовпадение длины траектории и идеальной ломаной.</summary>
-        public double WLen = 0.5;
+        public double WLen = 0.665;
         /// <summary>Вес языковой модели (частоты слова) против геометрии.</summary>
         public double LmWeight = 0.12;
         /// <summary>Нормировка канала букв: сумма квадратов промахов делится на (число букв)^LocPow.</summary>
-        public double LocPow = 1.0;
+        public double LocPow = 1.33;
 
         public DecoderParams Clone() { return (DecoderParams)MemberwiseClone(); }
     }

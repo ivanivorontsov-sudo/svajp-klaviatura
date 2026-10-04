@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -50,6 +50,7 @@ namespace SvajpKlaviatura
         private readonly Timer fadeTimer = new Timer { Interval = 16 };
         private readonly Timer repeatTimer = new Timer();
         private readonly Timer saveTimer = new Timer { Interval = 3000 };
+        private readonly Timer dragTimer = new Timer { Interval = 10 };
         private string preview;
         private long lastPreviewMs;
         private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -101,6 +102,7 @@ namespace SvajpKlaviatura
             fadeTimer.Tick += (o, e) => { trailFade -= 0.08f; if (trailFade <= 0) { trailFade = 0; trail.Clear(); fadeTimer.Stop(); } Invalidate(); };
             repeatTimer.Tick += (o, e) => { repeatTimer.Interval = 70; if (pressedKey != null && pressedKey.Kind == KeyKind.Backspace) Do("⌫", session.Backspace); else repeatTimer.Stop(); };
             saveTimer.Tick += (o, e) => { saveTimer.Stop(); dicts.SaveIfChanged(); };
+            dragTimer.Tick += (o, e) => { try { DragTick(); } catch (Exception ex) { Log.Error("Перетаскивание", ex); dragTimer.Stop(); op = Op.None; } };
             noticeTimer.Tick += (o, e) => { if (notice != null && clock.ElapsedMilliseconds > noticeUntil) { notice = null; Invalidate(); } if (notice == null) noticeTimer.Stop(); };
 
             watcher = new ClickWatcher(IsInsideScreen);
@@ -310,6 +312,7 @@ namespace SvajpKlaviatura
             var g = e.Graphics;
             g.DrawImageUnscaled(cache, 0, 0);
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
             DrawBar(g);
             if (pressedKey != null && op == Op.Keys && !(movedFar && startKey != null && startKey.IsLetter)) DrawKey(g, pressedKey, true);
             if (freeActive || (op == Op.Keys && movedFar))
@@ -328,6 +331,7 @@ namespace SvajpKlaviatura
             {
                 g.Clear(pal.Bg);
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                 using (var b = new SolidBrush(pal.Bar)) g.FillRectangle(b, 0, 0, ClientSize.Width, pad + barH + pad / 2);
                 foreach (var k in current.Keys) DrawKey(g, k, false);
                 // уголок для изменения размера
@@ -356,13 +360,66 @@ namespace SvajpKlaviatura
             Font f = keyFont;
             if (k.Kind == KeyKind.Char && k.IsLetter) label = UpperLabels ? label.ToUpperInvariant() : label;
             else if (k.Kind == KeyKind.Space) { label = current.IsLetterLayout ? (letters.Id == Layouts.En ? "English" : "Русский") : "пробел"; f = smallFont; }
-            else if (k.Kind == KeyKind.Language) { label = "🌐 " + (letters.Id == Layouts.En ? "EN" : "RU"); f = smallFont; }
+            else if (k.Kind == KeyKind.Language) { label = letters.Id == Layouts.En ? "EN" : "RU"; f = smallFont; }
             else if (k.Kind == KeyKind.ToSymbols || k.Kind == KeyKind.ToLetters || k.Kind == KeyKind.ToSymbols2 || k.Kind == KeyKind.Tab) f = smallFont;
             else if (k.Kind == KeyKind.Shift && session.Shift == ShiftState.Locked) label = "⇪";
             if (special && k.Kind != KeyKind.Language && k.Kind != KeyKind.ToSymbols && k.Kind != KeyKind.ToLetters && k.Kind != KeyKind.ToSymbols2 && k.Kind != KeyKind.Tab) f = symbolFont;
             Color tc = (k.Kind == KeyKind.Space) ? pal.TextDim : pal.Text;
             if (k.Kind == KeyKind.Shift && session.Shift == ShiftState.Locked) tc = pal.OnAccent;
+            if (DrawIcon(g, k, r, tc)) return;
+            if (k.Kind == KeyKind.Language)
+            {
+                // глобус рисуем сами (эмодзи 🌐 в GDI выглядит пятном)
+                string code = letters.Id == Layouts.En ? "EN" : "RU";
+                var ts = TextRenderer.MeasureText(g, code, f, Size.Empty, TextFormatFlags.NoPadding);
+                float gd = f.Size * 1.05f, gap2 = f.Size * 0.35f;
+                float total = gd + gap2 + ts.Width;
+                float x0 = r.X + (r.Width - total) / 2, cy = r.Y + r.Height / 2;
+                using (var pen = new Pen(tc, Math.Max(1.2f, gd * 0.09f)))
+                {
+                    var gr = new RectangleF(x0, cy - gd / 2, gd, gd);
+                    g.DrawEllipse(pen, gr);
+                    g.DrawEllipse(pen, gr.X + gd * 0.27f, gr.Y, gd * 0.46f, gd);
+                    g.DrawLine(pen, gr.X, cy, gr.Right, cy);
+                }
+                TextRenderer.DrawText(g, code, f, new Rectangle((int)(x0 + gd + gap2), (int)r.Y, ts.Width + 4, (int)r.Height), tc, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+                return;
+            }
             TextRenderer.DrawText(g, label, f, Rectangle.Round(r), tc, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+        }
+
+        /// <summary>Векторные значки Shift / Enter / Backspace: чёткие при любом размере и DPI.</summary>
+        private bool DrawIcon(Graphics g, KeyDef k, RectangleF r, Color c)
+        {
+            if (k.Kind != KeyKind.Shift && k.Kind != KeyKind.Enter && k.Kind != KeyKind.Backspace) return false;
+            float s = Math.Min(Math.Min(unitW, unitH) * 0.46f, Math.Min(r.Width, r.Height) * 0.62f);
+            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
+            Func<float, float, PointF> P = (x, y) => new PointF(cx + x * s, cy + y * s);
+            using (var pen = new Pen(c, Math.Max(1.3f, s * 0.085f)) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round })
+            using (var br = new SolidBrush(c))
+            {
+                if (k.Kind == KeyKind.Shift)
+                {
+                    float dy = session.Shift == ShiftState.Locked ? -0.1f : 0;
+                    var pts = new[] { P(0, -0.5f + dy), P(0.48f, 0.02f + dy), P(0.22f, 0.02f + dy), P(0.22f, 0.4f + dy), P(-0.22f, 0.4f + dy), P(-0.22f, 0.02f + dy), P(-0.48f, 0.02f + dy) };
+                    if (session.Shift == ShiftState.Off) g.DrawPolygon(pen, pts);
+                    else { g.FillPolygon(br, pts); g.DrawPolygon(pen, pts); }
+                    if (session.Shift == ShiftState.Locked) g.DrawLine(pen, P(-0.24f, 0.52f), P(0.24f, 0.52f));
+                }
+                else if (k.Kind == KeyKind.Enter)
+                {
+                    g.DrawLines(pen, new[] { P(0.42f, -0.38f), P(0.42f, 0.12f), P(-0.4f, 0.12f) });
+                    g.DrawLines(pen, new[] { P(-0.16f, -0.12f), P(-0.42f, 0.12f), P(-0.16f, 0.36f) });
+                }
+                else
+                {
+                    var pts = new[] { P(-0.55f, 0), P(-0.22f, -0.34f), P(0.55f, -0.34f), P(0.55f, 0.34f), P(-0.22f, 0.34f) };
+                    g.DrawPolygon(pen, pts);
+                    g.DrawLine(pen, P(0.0f, -0.14f), P(0.28f, 0.14f));
+                    g.DrawLine(pen, P(0.28f, -0.14f), P(0.0f, 0.14f));
+                }
+            }
+            return true;
         }
 
         private void DrawBar(Graphics g)
@@ -411,13 +468,23 @@ namespace SvajpKlaviatura
         {
             float w = Math.Max(3, Math.Min(unitW, unitH) * 0.13f);
             int n = trail.Count;
-            for (int i = 1; i < n; i++)
+            const int chunks = 12;
+            int step = Math.Max(1, (n + chunks - 1) / chunks);
+            for (int s0 = 0; s0 < n - 1; s0 += step)
             {
-                float t = (float)i / n;
-                int a = (int)(255 * trailFade * (0.25f + 0.75f * t));
-                using (var p = new Pen(Color.FromArgb(Math.Max(0, Math.Min(255, a)), pal.Trail), w * (0.45f + 0.55f * t)) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-                    g.DrawLine(p, trail[i - 1], trail[i]);
+                int s1 = Math.Min(n - 1, s0 + step);
+                float t = (float)s1 / (n - 1);
+                int a = (int)(235 * trailFade * (0.3f + 0.7f * t));
+                var seg = trail.GetRange(s0, s1 - s0 + 1).ToArray();
+                using (var p = new Pen(Color.FromArgb(Math.Max(0, Math.Min(255, a)), pal.Trail), w * (0.5f + 0.5f * t)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+                {
+                    if (seg.Length == 2) g.DrawLine(p, seg[0], seg[1]); else g.DrawLines(p, seg);
+                }
             }
+            // яркая точка на конце
+            var last = trail[n - 1];
+            float d = w * 1.1f;
+            using (var b = new SolidBrush(Color.FromArgb((int)(255 * trailFade), pal.Trail))) g.FillEllipse(b, last.X - d / 2, last.Y - d / 2, d, d);
         }
 
         private static void FillRound(Graphics g, Brush b, RectangleF r, float rad)
@@ -497,6 +564,27 @@ namespace SvajpKlaviatura
             dragCursor = Cursor.Position;
             dragBounds = Bounds;
             Capture = true;
+            dragTimer.Start();
+        }
+
+        /// <summary>Перетаскивание не зависит от доставки WM_MOUSEMOVE: положение курсора и кнопки опрашиваются по таймеру.</summary>
+        private void DragTick()
+        {
+            if (op != Op.Move && op != Op.Resize) { dragTimer.Stop(); return; }
+            DragTo(Cursor.Position);
+            int vk = SystemInformation.MouseButtonsSwapped ? 2 : 1;
+            if ((Native.GetAsyncKeyState(vk) & 0x8000) == 0) EndDrag();
+        }
+
+        private void EndDrag()
+        {
+            if (op != Op.Move && op != Op.Resize) return;
+            DragTo(Cursor.Position);
+            dragTimer.Stop();
+            op = Op.None;
+            if (Capture) Capture = false;
+            if (!OnSomeScreen(Bounds)) Bounds = DefaultBounds(Screen.FromPoint(Cursor.Position).WorkingArea);
+            RememberBounds();
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -527,6 +615,7 @@ namespace SvajpKlaviatura
 
         private void UpdateCursor(PointF p)
         {
+            if (op != Op.None || freeActive) return; // во время жеста и перетаскивания ничего не меняем
             Cursor c = Cursors.Default;
             string tip = null;
             if (op == Op.None && !freeActive)
@@ -546,6 +635,7 @@ namespace SvajpKlaviatura
 
         private void DragTo(Point cur)
         {
+            if (op != Op.Move && op != Op.Resize) return;
             int dx = cur.X - dragCursor.X, dy = cur.Y - dragCursor.Y;
             if (op == Op.Move) Location = new Point(dragBounds.X + dx, dragBounds.Y + dy);
             else
@@ -570,9 +660,7 @@ namespace SvajpKlaviatura
             {
                 case Op.Move:
                 case Op.Resize:
-                    op = Op.None; Capture = false;
-                    if (!OnSomeScreen(Bounds)) Bounds = DefaultBounds(Screen.FromPoint(Cursor.Position).WorkingArea);
-                    RememberBounds();
+                    EndDrag();
                     return;
                 case Op.Slot:
                     op = Op.None; Capture = false;
@@ -799,7 +887,7 @@ namespace SvajpKlaviatura
             if (disposing)
             {
                 try { watcher.Dispose(); } catch { }
-                fadeTimer.Dispose(); repeatTimer.Dispose(); saveTimer.Dispose(); noticeTimer.Dispose(); tips.Dispose();
+                fadeTimer.Dispose(); repeatTimer.Dispose(); dragTimer.Dispose(); saveTimer.Dispose(); noticeTimer.Dispose(); tips.Dispose();
                 if (cache != null) cache.Dispose();
                 foreach (var f in new[] { keyFont, smallFont, barFont, symbolFont }) if (f != null) f.Dispose();
             }

@@ -1,4 +1,4 @@
-# Дымовой тест на настоящем Windows: запуск, свайпы мышью по клавиатуре в тестовое поле и в Блокнот,
+﻿# Дымовой тест на настоящем Windows: запуск, свайпы мышью по клавиатуре в тестовое поле и в Блокнот,
 # проверка набранного текста и того, что фокус остался в поле; снимки экрана.
 param([Parameter(Mandatory = $true)][string]$Exe)
 $ErrorActionPreference = 'Stop'
@@ -230,11 +230,11 @@ Write-Host "11) перемещение и размер"
 LoadKeys $cfgA
 $w0 = $script:keys['WINDOW']
 $g = K 'GRIP'
-[In]::Glide([System.Windows.Forms.Cursor]::Position.X, [System.Windows.Forms.Cursor]::Position.Y, $g.X, $g.Y, 8, 5); [In]::Down(); [In]::Glide($g.X, $g.Y, $g.X - 60, $g.Y - 40, 10, 10); [In]::Up(); Start-Sleep -Milliseconds 400
+[In]::Glide([System.Windows.Forms.Cursor]::Position.X, [System.Windows.Forms.Cursor]::Position.Y, $g.X, $g.Y, 8, 5); [In]::Down(); Start-Sleep -Milliseconds 60; [In]::Glide($g.X, $g.Y, $g.X - 60, $g.Y - 40, 10, 10); Start-Sleep -Milliseconds 100; [In]::Up(); Start-Sleep -Milliseconds 400
 LoadKeys $cfgA; $w1 = $script:keys['WINDOW']
 Check (($w1.X -eq $w0.X - 60) -and ($w1.Y -eq $w0.Y - 40)) "окно передвинуто: $($w0.X),$($w0.Y) → $($w1.X),$($w1.Y)"
 $r = K 'RESIZE'
-[In]::Glide([System.Windows.Forms.Cursor]::Position.X, [System.Windows.Forms.Cursor]::Position.Y, $r.X, $r.Y, 8, 5); [In]::Down(); [In]::Glide($r.X, $r.Y, $r.X + 50, $r.Y + 30, 10, 10); [In]::Up(); Start-Sleep -Milliseconds 400
+[In]::Glide([System.Windows.Forms.Cursor]::Position.X, [System.Windows.Forms.Cursor]::Position.Y, $r.X, $r.Y, 8, 5); [In]::Down(); Start-Sleep -Milliseconds 60; [In]::Glide($r.X, $r.Y, $r.X + 50, $r.Y + 30, 10, 10); Start-Sleep -Milliseconds 100; [In]::Up(); Start-Sleep -Milliseconds 400
 LoadKeys $cfgA; $w2 = $script:keys['WINDOW']
 Check (($w2.W -eq $w1.W + 50) -and ($w2.H -eq $w1.H + 30)) "размер изменён: $($w1.W)x$($w1.H) → $($w2.W)x$($w2.H)"
 Check (Focused) "фокус остался в поле ввода"

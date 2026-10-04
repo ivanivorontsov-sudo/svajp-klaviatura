@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace SvajpKlaviatura.Engine
@@ -160,7 +160,7 @@ namespace SvajpKlaviatura.Engine
             x = l.Row(1, 0, "[]{}<>«»—•");
             l.Add(KeyKind.Enter, null, "⏎", x, 1, 1.5);
             l.Add(KeyKind.ToSymbols, null, "?123", 0, 2, 1.5);
-            l.Add(KeyKind.Tab, null, "Tab ⇥", 1.5, 2, 1.5);
+            l.Add(KeyKind.Tab, null, "Tab", 1.5, 2, 1.5);
             l.Add(KeyKind.Left, null, "←", 3, 2, 1);
             l.Add(KeyKind.Up, null, "↑", 4, 2, 1);
             l.Add(KeyKind.Down, null, "↓", 5, 2, 1);
